@@ -17,53 +17,73 @@ cities = dict_loc.get('cities')
 
 #these below function will update stock availability when specific item is purchased or returned
 def reduce_availability(db_name, collection_name, category, category_value, OptionNumber, OptionName, size, color):
-    client = pymongo.MongoClient('mongodb://localhost:27017/')
+    client = MongoClient(mongodb_uri, tlsCAFile=certifi.where())
     db = client[db_name]
     collection = db[collection_name]
 
-    query_filter = {f"categories.{category}": category_value, f"categories.options.{OptionNumber}": OptionName, "categories.options.sizes.size": size, "categories.options.sizes.colors.color": color}
-
     try:
-        documents = collection.find(query_filter)
+        documents = collection.find({
+            f"categories.{category}": category_value,
+            f"categories.options.{OptionNumber}": OptionName
+        })
+
         for document in documents:
-            availability = document["categories"][0]["options"][0]["sizes"][0]["colors"][0]["availability"]
-            print(f"Before update: {availability}")
-
-            # Update the availability
-            availability -= 1
-            collection.update_one({"_id": document["_id"]}, {"$set": {"categories.0.options.0.sizes.0.colors.0.availability": availability}})
-
-            # Fetch the updated document
-            updated_document = collection.find_one({"_id": document["_id"]})
-            updated_availability = updated_document["categories"][0]["options"][0]["sizes"][0]["colors"][0]["availability"]
-            print(f"Updated availability: {updated_availability}")
-    except pymongo.errors.WriteError as e:
+            for cat_index, cat in enumerate(document.get('categories', [])):
+                if cat.get(category) == category_value:
+                    for opt_index, opt in enumerate(cat.get('options', [])):
+                        if opt.get(OptionNumber) == OptionName:
+                            for sz_index, sz in enumerate(opt.get('sizes', [])):
+                                if sz.get('size') == size:
+                                    for col_index, col in enumerate(sz.get('colors', [])):
+                                        if col.get('color') == color:
+                                            # Update the availability
+                                            collection.update_one(
+                                                {"_id": document["_id"]},
+                                                {"$inc": {
+                                                    f"categories.{cat_index}.options.{opt_index}.sizes.{sz_index}.colors.{col_index}.availability": -1
+                                                }}
+                                            )
+                                            print(f"Updated availability for document ID: {document['_id']}")
+    except Exception as e:
         print(f"Error: {e}")
 
-    client.close()
+    finally:
+        client.close()
+
+
+
+
 
 def increment_availability(db_name, collection_name, category, category_value, OptionNumber, OptionName, size, color):
-    client = pymongo.MongoClient('mongodb://localhost:27017/')
+    client = MongoClient(mongodb_uri, tlsCAFile=certifi.where())
     db = client[db_name]
     collection = db[collection_name]
 
-    query_filter = {f"categories.{category}": category_value, f"categories.options.{OptionNumber}": OptionName, "categories.options.sizes.size": size, "categories.options.sizes.colors.color": color}
-
     try:
-        documents = collection.find(query_filter)
+        documents = collection.find({
+            f"categories.{category}": category_value,
+            f"categories.options.{OptionNumber}": OptionName
+        })
+
         for document in documents:
-            availability = document["categories"][0]["options"][0]["sizes"][0]["colors"][0]["availability"]
-            print(f"Before update: {availability}")
-
-            # Update the availability
-            availability += 1
-            collection.update_one({"_id": document["_id"]}, {"$set": {"categories.0.options.0.sizes.0.colors.0.availability": availability}})
-
-            # Fetch the updated document
-            updated_document = collection.find_one({"_id": document["_id"]})
-            updated_availability = updated_document["categories"][0]["options"][0]["sizes"][0]["colors"][0]["availability"]
-            print(f"Updated availability: {updated_availability}")
-    except pymongo.errors.WriteError as e:
+            for cat_index, cat in enumerate(document.get('categories', [])):
+                if cat.get(category) == category_value:
+                    for opt_index, opt in enumerate(cat.get('options', [])):
+                        if opt.get(OptionNumber) == OptionName:
+                            for sz_index, sz in enumerate(opt.get('sizes', [])):
+                                if sz.get('size') == size:
+                                    for col_index, col in enumerate(sz.get('colors', [])):
+                                        if col.get('color') == color:
+                                            # Update the availability
+                                            collection.update_one(
+                                                {"_id": document["_id"]},
+                                                {"$inc": {
+                                                    f"categories.{cat_index}.options.{opt_index}.sizes.{sz_index}.colors.{col_index}.availability": 1
+                                                }}
+                                            )
+                                            print(f"Updated availability for document ID: {document['_id']}")
+    except Exception as e:
         print(f"Error: {e}")
 
-    client.close()
+    finally:
+        client.close()
